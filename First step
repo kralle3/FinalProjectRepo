@@ -1,0 +1,80 @@
+// Written by:
+// Last Edited: 
+// TEC 284 Magic 8 Ball
+
+#include <Arduino.h>
+#include <U8x8lib.h>
+#include "LIS3DHTR.h"
+
+#ifdef SOFTWAREWIRE
+  #include <SoftwareWire.h>
+  SoftwareWire myWire(3, 2);
+  LIS3DHTR<SoftwareWire> LIS; //Software I2C
+  #define WIRE myWire
+#else
+  #include <Wire.h>
+  LIS3DHTR<TwoWire> LIS; //Hardware I2C
+  #define WIRE Wire
+#endif
+
+#define SHAKE_THRESHOLD 2.0
+#define MESSAGE_DURATION 3000 // milliseconds
+
+U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE); // OLED
+
+// Struct to hold each message and mood
+struct Message {
+  const char* text;
+  const char* mood;
+};
+
+// Array of messages
+Message messages[] = {
+  {"For Sure", "Positive"},
+  {"Yes", "Positive"},
+  {"Definitely!", "Positive"},
+  {"Maybe", "Neutral"},
+  {"Not Sure...", "Neutral"},
+  {"Ask Later", "Neutral"},
+  {"I'm Tired", "Neutral"},
+  {"No Way!", "Negative"},
+  {"No", "Negative"},
+  {"Nope", "Negative"}
+};
+
+const int messageCount = sizeof(messages) / sizeof(messages[0]);
+
+// Function to display a random message
+void displayRandomMessage() {
+  int index = random(messageCount);
+  Message m = messages[index];
+
+  u8x8.clear();
+  u8x8.drawString(0, 1, "Magic 8 Ball:");
+  u8x8.drawString(0, 3, m.text);
+  delay(MESSAGE_DURATION); // Display duration
+}
+
+void setup() {
+  LIS.begin(WIRE, 0x19); // Accelerometer
+  LIS.setOutputDataRate(LIS3DHTR_DATARATE_50HZ);
+  LIS.setFullScaleRange(LIS3DHTR_RANGE_2G);
+
+  Serial.begin(9600);
+  u8x8.begin();
+  u8x8.setFont(u8x8_font_chroma48medium8_r);
+
+  randomSeed(analogRead(A0)); // Use analog pin to seed randomness
+}
+
+void loop() {
+  float x = LIS.getAccelerationX();
+  float y = LIS.getAccelerationY();
+  float z = LIS.getAccelerationZ();
+
+  if (abs(x) > SHAKE_THRESHOLD || abs(y) > SHAKE_THRESHOLD || abs(z) > SHAKE_THRESHOLD) {
+    displayRandomMessage();
+  }
+
+  delay(100); // Debounce delay
+}
